@@ -21,21 +21,18 @@
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5",
-        max_tokens: 1000,
+        max_tokens: 2000,
         system: body.system,
         messages: body.messages
       })
     });
     const data = await response.json();
-    console.log("STATUS:", response.status);
-    console.log("RESPONSE:", JSON.stringify(data));
     return {
       statusCode: 200,
       headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify(data)
     };
   } catch (err) {
-    console.log("ERRORE:", err.message);
     return {
       statusCode: 500,
       headers: { "Access-Control-Allow-Origin": "*" },
