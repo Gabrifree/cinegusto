@@ -1,50 +1,45 @@
-exports.handler = async (event) => {
+﻿exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Methods": "POST, OPTIONS"
       },
-      body: "",
+      body: ""
     };
   }
-
   try {
     const body = JSON.parse(event.body);
-
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "anthropic-beta": "messages-2023-12-15",
+        "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-3-haiku-20240307",,
+        model: "claude-3-haiku-20240307",
         max_tokens: 1000,
         system: body.system,
-        messages: body.messages,
-      }),
+        messages: body.messages
+      })
     });
-
     const data = await response.json();
     console.log("STATUS:", response.status);
     console.log("RESPONSE:", JSON.stringify(data));
-
     return {
       statusCode: 200,
       headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify(data),
+      body: JSON.stringify(data)
     };
   } catch (err) {
     console.log("ERRORE:", err.message);
     return {
       statusCode: 500,
       headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ error: err.message }),
+      body: JSON.stringify({ error: err.message })
     };
   }
 };
