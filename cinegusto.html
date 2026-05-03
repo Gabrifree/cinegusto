@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineGusto</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --gold: #c9a84c;
+    --gold-dim: rgba(201,168,76,0.15);
+    --text: #e8e3d8;
+    --text-muted: #7a7570;
+    --red: #c0392b;
+    --green: #27ae60;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  header {
+    padding: 2.5rem 2rem 1.5rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    letter-spacing: 0.05em;
+    color: var(--gold);
+    margin-bottom: 0.3rem;
+  }
+
+  .tagline {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .phase-indicator {
+    position: absolute;
+    right: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .phase-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    margin: 0 3px;
+    transition: background 0.3s;
+  }
+  .phase-dot.active { background: var(--gold); }
+
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    font-style: italic;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+  }
+
+  .section-sub {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+    line-height: 1.5;
+  }
+
+  /* Progress bar */
+  .confidence-bar-wrap {
+    margin-bottom: 2.5rem;
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .confidence-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+    letter-spacing: 0.05em;
+  }
+  .confidence-label span:last-child { color: var(--gold); }
+  .confidence-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .confidence-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #8b6914, var(--gold));
+    border-radius: 2px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Movie cards */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .movie-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem 1.4rem;
+    transition: border-color 0.25s, transform 0.2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .movie-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--gold);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+
+  .movie-card:hover {
+    border-color: rgba(201,168,76,0.4);
+    transform: translateX(2px);
+  }
+
+  .movie-card.seen { border-color: rgba(201,168,76,0.3); }
+  .movie-card.seen::before { opacity: 1; }
+
+  .movie-card.skipped { opacity: 0.45; }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .card-title-block { flex: 1; }
+
+  .card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    color: var(--text);
+    margin-bottom: 0.15rem;
+  }
+
+  .card-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  .card-genre {
+    font-size: 0.68rem;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 0.3rem;
+  }
+
+  .seen-toggle {
+    flex-shrink: 0;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .seen-toggle:hover { border-color: var(--gold); color: var(--gold); }
+  .seen-toggle.active {
+    background: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  .rating-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border);
+    animation: fadeDown 0.25s ease;
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .rating-label { font-size: 0.78rem; color: var(--text-muted); margin-right: 0.3rem; }
+
+  .star-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    transition: transform 0.15s;
+    color: var(--border);
+  }
+  .star-btn:hover, .star-btn.lit { color: var(--gold); }
+  .star-btn:hover { transform: scale(1.25); }
+
+  /* Action button */
+  .btn-primary {
+    display: block;
+    width: 100%;
+    margin-top: 2rem;
+    padding: 0.9rem;
+    background: var(--gold);
+    color: #0d0d0d;
+    border: none;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+  }
+
+  .btn-primary:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Recommendations phase */
+  .rec-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 1.2rem;
+    transition: border-color 0.25s;
+  }
+
+  .rec-card:hover { border-color: rgba(201,168,76,0.35); }
+
+  .rec-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.2rem 1.4rem;
+    cursor: pointer;
+  }
+
+  .rec-title-block { flex: 1; }
+
+  .rec-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .rec-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.4rem;
+  }
+
+  .badge {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .badge-type { background: var(--surface2); color: var(--text-muted); }
+  .badge-why { background: var(--gold-dim); color: var(--gold); border: 1px solid rgba(201,168,76,0.3); }
+
+  .rec-expand-icon {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    transition: transform 0.25s;
+  }
+  .rec-card.open .rec-expand-icon { transform: rotate(180deg); }
+
+  .rec-body {
+    padding: 0 1.4rem 1.4rem;
+    display: none;
+    animation: fadeDown 0.2s ease;
+  }
+
+  .rec-card.open .rec-body { display: block; }
+
+  .rec-body p {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+    margin-bottom: 1rem;
+  }
+
+  .rec-body p strong { color: var(--text); font-weight: 400; }
+
+  .watch-actions {
+    display: flex;
+    gap: 0.7rem;
+  }
+
+  .btn-watch {
+    padding: 0.5rem 1.2rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+
+  .btn-yes {
+    background: var(--green);
+    color: #fff;
+    border: 1px solid var(--green);
+  }
+
+  .btn-no {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .btn-yes:hover { opacity: 0.85; }
+  .btn-no:hover { border-color: var(--red); color: var(--red); }
+
+  /* Loading */
+  .loading-wrap {
+    text-align: center;
+    padding: 3rem 1rem;
+  }
+
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1.2rem;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* Completion */
+  .completion-block {
+    text-align: center;
+    padding: 2rem 1rem;
+  }
+
+  .completion-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+
+  .completion-block h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    color: var(--gold);
+    margin-bottom: 0.5rem;
+  }
+
+  .completion-block p {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .restart-link {
+    display: inline-block;
+    margin-top: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-decoration: underline;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+  }
+
+  /* Error */
+  .error-box {
+    padding: 1rem 1.2rem;
+    background: rgba(192,57,43,0.1);
+    border: 1px solid rgba(192,57,43,0.3);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #e74c3c;
+    margin-top: 1rem;
+  }
+
+  @media (min-width: 600px) {
+    .cards-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CineGusto</div>
+  <div class="tagline">Scopri il tuo prossimo film preferito</div>
+  <div class="phase-indicator">
+    <span class="phase-dot active" id="dot1"></span>
+    <span class="phase-dot" id="dot2"></span>
+    <span class="phase-dot" id="dot3"></span>
+  </div>
+</header>
+
+<main id="app">
+  <div class="loading-wrap">
+    <div class="spinner"></div>
+    <div class="loading-text">Caricamento...</div>
+  </div>
+</main>
+
+<script>
+// ─── Persistence ─────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'cinegusto_v1';
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+}
+function loadSaved() {
+  try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const _saved = loadSaved();
+const state = _saved || {
+  phase: 1,
+  round: 1,
+  seenMovies: [],
+  currentBatch: [],
+  userChoices: {},
+  watchList: {}
+};
+
+// ─── Starter films (static, no API needed for round 1) ───────────────────────
+const starterFilms = [
+  { id: 's1', title: 'Il Padrino', year: 1972, genre: 'Crime · Drama', tags: ['crime','drama','classic','intense'] },
+  { id: 's2', title: 'Inception', year: 2010, genre: 'Sci-Fi · Thriller', tags: ['scifi','thriller','mind-bending','action'] },
+  { id: 's3', title: 'Parasite', year: 2019, genre: 'Thriller · Drammatico', tags: ['thriller','drama','social','korean'] },
+  { id: 's4', title: 'The Grand Budapest Hotel', year: 2014, genre: 'Commedia · Avventura', tags: ['comedy','adventure','quirky','visual'] },
+  { id: 's5', title: 'Interstellar', year: 2014, genre: 'Sci-Fi · Avventura', tags: ['scifi','emotional','space','epic'] }
+];
+
+// ─── API call ─────────────────────────────────────────────────────────────────
+async function callClaude(prompt) {
+  const res = await fetch('/.netlify/functions/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system: 'Sei un esperto cinematografico italiano. Rispondi SOLO con JSON valido, senza backtick, senza testo aggiuntivo.',
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  const data = await res.json();
+  const text = data.content.find(b => b.type === 'text')?.text || '';
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
+}
+
+// ─── Render helpers ───────────────────────────────────────────────────────────
+function setPhaseIndicator(n) {
+  for (let i = 1; i <= 3; i++) {
+    document.getElementById(`dot${i}`).classList.toggle('active', i <= n);
+  }
+}
+
+function confidencePercent() {
+  // Increases based on number of seen+rated films
+  const rated = state.seenMovies.length;
+  return Math.min(100, rated * 14 + (state.round - 1) * 10);
+}
+
+function renderConfidenceBar() {
+  const pct = confidencePercent();
+  return `
+    <div class="confidence-bar-wrap">
+      <div class="confidence-label">
+        <span>Profilo gusto</span>
+        <span>${pct}% completato</span>
+      </div>
+      <div class="confidence-track">
+        <div class="confidence-fill" id="conf-fill" style="width:${pct}%"></div>
+      </div>
+    </div>`;
+}
+
+// ─── Phase 1 & 2: Film rating cards ──────────────────────────────────────────
+function renderRatingPhase(films, subtitle) {
+  const choices = state.userChoices;
+
+  const cards = films.map(f => {
+    const c = choices[f.id] || {};
+    const seen = !!c.seen;
+    const rating = c.rating || 0;
+
+    return `
+    <div class="movie-card ${seen ? 'seen' : ''}" id="card-${f.id}">
+      <div class="card-header">
+        <div class="card-title-block">
+          <div class="card-title">${f.title}</div>
+          <div class="card-meta">${f.year}</div>
+          <div class="card-genre">${f.genre}</div>
+        </div>
+        <button class="seen-toggle ${seen ? 'active' : ''}" onclick="toggleSeen('${f.id}')">
+          ${seen ? '✓ Visto' : 'L\'ho visto'}
+        </button>
+      </div>
+      ${seen ? `
+      <div class="rating-row" id="rating-${f.id}">
+        <span class="rating-label">Voto:</span>
+        ${[1,2,3,4,5].map(n => `
+          <button class="star-btn ${rating >= n ? 'lit' : ''}" onclick="setRating('${f.id}', ${n})">★</button>
+        `).join('')}
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  const seenCount = films.filter(f => choices[f.id]?.seen).length;
+  const ratedCount = films.filter(f => choices[f.id]?.rating).length;
+  const canProceed = seenCount > 0 ? ratedCount === seenCount : true;
+
+  const btnLabel = confidencePercent() >= 70
+    ? '🎬 Scopri le raccomandazioni finali'
+    : 'Continua — altri film →';
+
+  return `
+    <h2 class="section-title">${state.round === 1 ? 'Quali di questi hai visto?' : 'E questi?'}</h2>
+    <p class="section-sub">${subtitle}</p>
+    ${renderConfidenceBar()}
+    <div class="cards-grid">${cards}</div>
+    <button class="btn-primary" id="proceed-btn" ${canProceed ? '' : 'disabled'} onclick="proceed()">
+      ${btnLabel}
+    </button>`;
+}
+
+function toggleSeen(id) {
+  const c = state.userChoices[id] || {};
+  c.seen = !c.seen;
+  if (!c.seen) c.rating = 0;
+  state.userChoices[id] = c;
+  saveState();
+  renderCurrentPhase();
+}
+
+function setRating(id, n) {
+  state.userChoices[id] = state.userChoices[id] || {};
+  state.userChoices[id].rating = n;
+  saveState();
+  renderCurrentPhase();
+}
+
+function renderCurrentPhase() {
+  const sub = state.round === 1
+    ? 'Segna i film che hai visto e daglielo un voto da 1 a 5 stelle.'
+    : 'Basandomi sui tuoi gusti, ho selezionato questi. Hai visto qualcuno?';
+  document.getElementById('app').innerHTML = renderRatingPhase(state.currentBatch, sub);
+}
+
+// ─── Proceed ──────────────────────────────────────────────────────────────────
+async function proceed() {
+  // Collect rated from current batch
+  state.currentBatch.forEach(f => {
+    const c = state.userChoices[f.id];
+    if (c?.seen && c?.rating) {
+      state.seenMovies.push({ title: f.title, year: f.year, genre: f.genre, rating: c.rating });
+    }
+  });
+
+  const conf = confidencePercent();
+  saveState();
+
+  if (conf >= 70 || state.round >= 3) {
+    await renderFinalRecs();
+  } else {
+    await renderNextBatch();
+  }
+}
+
+// ─── Next batch ───────────────────────────────────────────────────────────────
+async function renderNextBatch() {
+  state.round++;
+  setPhaseIndicator(2);
+
+  document.getElementById('app').innerHTML = `
+    <div class="loading-wrap">
+      <div class="spinner"></div>
+      <div class="loading-text">Analizzo i tuoi gusti e scelgo i prossimi film...</div>
+    </div>`;
+
+  try {
+    const seenStr = state.seenMovies.map(m => `${m.title} (${m.year}) — voto ${m.rating}/5`).join(', ');
+    const prompt = `
+L'utente ha visto e valutato: ${seenStr}.
+Suggerisci 5 film correlati ai suoi gusti, evitando quelli già citati.
+Rispondi SOLO con questo JSON:
+{
+  "films": [
+    { "id": "r1", "title": "...", "year": 1994, "genre": "...", "tags": ["tag1","tag2"] },
+    ...
+  ]
+}`;
+
+    const data = await callClaude(prompt);
+    state.currentBatch = data.films;
+    state.userChoices = {};
+    saveState();
+    renderCurrentPhase();
+  } catch(e) {
+    showError('Errore nel recupero dei film. Riprova.');
+  }
+}
+
+// ─── Final recommendations ────────────────────────────────────────────────────
+async function renderFinalRecs() {
+  setPhaseIndicator(3);
+
+  document.getElementById('app').innerHTML = `
+    <div class="loading-wrap">
+      <div class="spinner"></div>
+      <div class="loading-text">Costruisco il tuo profilo cinematografico e preparo i consigli finali...</div>
+    </div>`;
+
+  try {
+    const seenStr = state.seenMovies.map(m => `${m.title} — voto ${m.rating}/5`).join('; ');
+    const prompt = `
+Sei un esperto cinematografico. L'utente ha visto e valutato: ${seenStr}.
+
+Analizza i suoi gusti e suggerisci 6 titoli da recuperare (film classici o serie tv di qualità) più 2 uscite recenti (2023-2026).
+Per ciascuno spiega PERCHÉ si adatta ai suoi gusti e di cosa parla brevemente.
+
+Rispondi SOLO con questo JSON:
+{
+  "profile_summary": "breve descrizione del gusto dell'utente in 1 frase",
+  "recommendations": [
+    {
+      "id": "rec1",
+      "title": "...",
+      "year": 1994,
+      "type": "Film",
+      "genre": "...",
+      "why_badge": "perché potrebbe piacergli in 4-6 parole",
+      "why_long": "spiegazione personalizzata di 2-3 frasi perché si adatta ai suoi gusti",
+      "plot": "trama in 1-2 frasi"
+    }
+  ]
+}`;
+
+    const data = await callClaude(prompt);
+    state.finalRecs = data;
+    saveState();
+    renderRecsUI(data);
+  } catch(e) {
+    showError('Errore nella generazione dei consigli. Riprova.');
+  }
+}
+
+function renderRecsUI(data) {
+  const wl = state.watchList || {};
+  const cards = data.recommendations.map(r => {
+    const watched = wl[r.id];
+    const watchHtml = watched === true
+      ? `<span style="color:var(--green);font-size:0.85rem">✓ Aggiunto alla tua lista</span>`
+      : watched === false
+        ? `<span style="color:var(--text-muted);font-size:0.85rem">Saltato</span>`
+        : `<div class="watch-actions">
+            <button class="btn-watch btn-yes" onclick="markWatch('${r.id}', true)">Lo guardo ✓</button>
+            <button class="btn-watch btn-no" onclick="markWatch('${r.id}', false)">Non fa per me</button>
+           </div>`;
+    return `
+    <div class="rec-card" id="recc-${r.id}" style="${wl[r.id] === false ? 'opacity:0.4' : ''}">
+      <div class="rec-header" onclick="toggleRec('${r.id}')">
+        <div class="rec-title-block">
+          <div class="rec-title">${r.title} <span style="font-size:0.75rem;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-weight:300">(${r.year})</span></div>
+          <div class="rec-badges">
+            <span class="badge badge-type">${r.type} · ${r.genre}</span>
+            <span class="badge badge-why">✦ ${r.why_badge}</span>
+          </div>
+        </div>
+        <span class="rec-expand-icon">▼</span>
+      </div>
+      <div class="rec-body">
+        <p><strong>Perché per te:</strong> ${r.why_long}</p>
+        <p><strong>Di cosa parla:</strong> ${r.plot}</p>
+        ${watchHtml}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('app').innerHTML = `
+    <h2 class="section-title">Il tuo profilo cinematografico</h2>
+    <p class="section-sub" style="margin-bottom:1.2rem">${data.profile_summary}</p>
+    ${renderConfidenceBar()}
+    <h2 class="section-title" style="margin-bottom:0.3rem;margin-top:0.5rem">Film e serie da recuperare</h2>
+    <p class="section-sub">Clicca su un titolo per leggere perché è stato scelto per te.</p>
+    ${cards}
+    <div style="text-align:center;margin-top:2rem">
+      <span class="restart-link" onclick="restart()">↺ Ricomincia con nuovi film</span>
+    </div>`;
+}
+
+function toggleRec(id) {
+  const card = document.getElementById(`recc-${id}`);
+  card.classList.toggle('open');
+}
+
+function markWatch(id, yes) {
+  state.watchList = state.watchList || {};
+  state.watchList[id] = yes;
+  saveState();
+  const card = document.getElementById(`recc-${id}`);
+  card.style.opacity = yes ? '1' : '0.4';
+  card.querySelector('.watch-actions').innerHTML = yes
+    ? `<span style="color:var(--green);font-size:0.85rem">✓ Aggiunto alla tua lista</span>`
+    : `<span style="color:var(--text-muted);font-size:0.85rem">Saltato</span>`;
+}
+
+// ─── Error ────────────────────────────────────────────────────────────────────
+function showError(msg) {
+  const err = `<div class="error-box">${msg}</div>`;
+  document.getElementById('app').insertAdjacentHTML('beforeend', err);
+}
+
+// ─── Restart ──────────────────────────────────────────────────────────────────
+function restart() {
+  localStorage.removeItem(STORAGE_KEY);
+  state.phase = 1;
+  state.round = 1;
+  state.seenMovies = [];
+  state.currentBatch = [...starterFilms];
+  state.userChoices = {};
+  state.watchList = {};
+  state.finalRecs = null;
+  setPhaseIndicator(1);
+  renderCurrentPhase();
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+if (!state.currentBatch || state.currentBatch.length === 0) {
+  state.currentBatch = [...starterFilms];
+}
+
+// Ripristina la fase corretta
+if (state.finalRecs) {
+  setPhaseIndicator(3);
+  renderRecsUI(state.finalRecs);
+} else {
+  setPhaseIndicator(state.round);
+  renderCurrentPhase();
+}
+
+// Mostra nota "profilo salvato" se ci sono dati
+if (state.seenMovies && state.seenMovies.length > 0 && !state.finalRecs) {
+  const note = document.createElement('div');
+  note.style.cssText = 'text-align:center;font-size:11px;color:#5a5550;margin-top:10px;letter-spacing:0.05em';
+  note.textContent = `✓ ${state.seenMovies.length} film nel tuo profilo salvato`;
+  document.getElementById('app').appendChild(note);
+}
+</script>
+</body>
+</html>
